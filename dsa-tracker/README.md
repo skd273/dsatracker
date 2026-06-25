@@ -4,7 +4,7 @@ A Spring Boot web app to track DSA preparation using the **A2Z DSA Sheet** curri
 
 ## Features
 
-- **474 problems** across 18 A2Z sheet topics
+- **409 problems** across 18 A2Z sheet topics
 - **Sorted by difficulty** — Easy → Medium → Hard within each topic
 - **Progress tracking** — check off problems to update solved count
 - **Revision notes** — write and save your own notes per problem
