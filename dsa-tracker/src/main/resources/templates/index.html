@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DSA Tracker Sheet</title>
+    <script>
+        (function () {
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <div class="brand">
+            <span class="brand-icon">&#9670;</span>
+            <div>
+                <h1>DSA Tracker Sheet</h1>
+                <p class="subtitle" th:text="${stats.totalTargetProblems} + ' problems — LeetCode / GeeksforGeeks only'">409 problems — LeetCode / GeeksforGeeks only</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button type="button" id="themeToggleBtn" class="theme-btn" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">
+                <span class="theme-icon-dark">&#9790;</span>
+                <span class="theme-icon-light">&#9728;</span>
+            </button>
+            <button type="button" id="resetProgressBtn" class="reset-btn" title="Clear all solved progress and revision notes">
+                Reset progress
+            </button>
+        </div>
+        <div class="overall-progress">
+            <div class="progress-label">
+                <span>Overall Progress</span>
+                <span class="progress-value" id="overallPercent" th:text="${stats.overallProgressPercent} + '%'">0%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="overallFill" th:style="'width:' + ${stats.overallProgressPercent} + '%'"></div>
+            </div>
+            <p class="progress-detail">
+                <span id="totalSolved" th:text="${stats.totalProblemsSolved}">0</span> /
+                <span th:text="${stats.totalTargetProblems}">0</span> problems solved
+            </p>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <section class="potd-panel" th:if="${potd != null}">
+        <div class="potd-header">
+            <span class="potd-badge">Problem of the Day</span>
+            <span class="potd-date" th:text="${#temporals.format(potd.date, 'EEE, MMM d')}">Thu, Jun 25</span>
+        </div>
+        <div class="potd-body" th:classappend="${potd.solved} ? ' solved' : ''" th:attr="data-problem-id=${potd.id}">
+            <label class="problem-check potd-check">
+                <input type="checkbox"
+                       class="potd-toggle"
+                       th:checked="${potd.solved}"
+                       th:attr="data-id=${potd.id}">
+                <span class="checkmark"></span>
+            </label>
+            <div class="potd-main">
+                <p class="potd-topic" th:text="${potd.topicName}">Topic</p>
+                <div class="problem-title-row">
+                    <a th:href="@{/problems/{id}(id=${potd.id})}"
+                       th:text="${potd.title}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="problem-link potd-title">Problem Title</a>
+                    <span th:if="${potd.url == null or #strings.isEmpty(potd.url)}"
+                          class="problem-title-plain potd-title"
+                          th:text="${potd.title}">Problem Title</span>
+                    <span class="difficulty-badge"
+                          th:text="${potd.difficulty.name()}"
+                          th:classappend="' diff-' + ${potd.difficulty.name()}">MEDIUM</span>
+                    <span th:if="${potd.platform != null}"
+                          class="platform-badge"
+                          th:text="${potd.platform.displayName}"
+                          th:classappend="' platform-' + ${potd.platform.name()}">LeetCode</span>
+                </div>
+            </div>
+            <button type="button"
+                    class="potd-jump-btn"
+                    th:attr="data-topic-id=${potd.topicId},data-problem-id=${potd.id}">
+                View in sheet
+            </button>
+        </div>
+    </section>
+
+    <section class="activity-panel">
+        <div class="activity-meta">
+            <div class="streak-block">
+                <span class="streak-value" id="currentStreak" th:text="${activity.currentStreak}">0</span>
+                <span class="streak-label">day streak</span>
+            </div>
+            <div class="streak-block secondary">
+                <span class="streak-value" id="longestStreak" th:text="${activity.longestStreak}">0</span>
+                <span class="streak-label">longest streak</span>
+            </div>
+        </div>
+        <div class="heatmap-container">
+            <p class="heatmap-caption">Last 26 weeks</p>
+            <div class="heatmap-grid" id="heatmapGrid" th:attr="data-max=${activity.maxCount}">
+                <div th:each="week : ${activity.weeks}" class="heatmap-week">
+                    <div th:each="day : ${week}"
+                         class="heatmap-cell"
+                         th:classappend="${day.count >= 0} ? ' level-' + ${activity.levelFor(day.count)} : ' pad'"
+                         th:attr="data-date=${day.date},data-count=${day.count}"
+                         th:title="${day.count >= 0} ? ${day.date} + ': ' + ${day.count} + ' solved' : null">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="toolbar">
+        <div class="filter-group">
+            <label for="searchInput">Search</label>
+            <input type="search" id="searchInput" placeholder="Search topics, problems, or your notes...">
+        </div>
+    </section>
+
+    <section class="sheet-card accordion-sheet">
+        <div th:each="entry : ${groupedTopics}" class="category-block" th:attr="data-category=${entry.key}">
+            <div th:each="topic : ${entry.value}"
+                 class="topic-accordion"
+                 th:attr="data-topic-id=${topic.id},data-name=${topic.name},data-problems=${#strings.listJoin(topic.problems.![title], ' ')},data-revision-notes=${#strings.listJoin(topic.problems.![revisionNotes], ' ')}">
+
+                <button type="button"
+                        class="topic-accordion-trigger"
+                        th:attr="aria-expanded='false',aria-controls='panel-' + ${topic.id}">
+                    <span class="accordion-chevron" aria-hidden="true">&#8250;</span>
+                    <span class="topic-accordion-title" th:text="${topic.name}">Topic Name</span>
+                    <span class="topic-accordion-progress">
+                        <span class="progress-bar inline">
+                            <span class="progress-fill topic-fill"
+                                  th:style="'width:' + (${#lists.size(topic.problems) > 0} ? (${topic.problemsSolved} * 100 / ${#lists.size(topic.problems)}) : 0) + '%'"></span>
+                        </span>
+                        <span class="topic-count">
+                            <span class="topic-solved-count" th:text="${topic.problemsSolved}">0</span>
+                            /
+                            <span class="topic-total-count" th:text="${#lists.size(topic.problems)}">0</span>
+                        </span>
+                    </span>
+                </button>
+
+                <div class="topic-accordion-panel"
+                     th:id="'panel-' + ${topic.id}"
+                     hidden>
+                    <div class="topic-panel-scroll">
+                    <div class="problems-stack" th:if="${!topic.problems.isEmpty()}">
+                        <th:block th:with="difficultyProblems=${topic.easyProblems}">
+                            <div class="difficulty-group" th:if="${!#lists.isEmpty(difficultyProblems)}">
+                                <h4 class="difficulty-group-title easy">Easy</h4>
+                                <article th:each="problem : ${difficultyProblems}"
+                                     class="problem-card"
+                                     th:classappend="${problem.solved} ? ' solved' : ''"
+                                     th:attr="data-problem-id=${problem.id},data-title=${problem.title},data-revision=${problem.revisionNotes}">
+                                <div class="problem-card-top">
+                                    <label class="problem-check">
+                                        <input type="checkbox"
+                                               th:checked="${problem.solved}"
+                                               th:attr="data-id=${problem.id}"
+                                               class="problem-toggle">
+                                        <span class="checkmark"></span>
+                                    </label>
+                                    <div class="problem-main">
+                                        <div class="problem-title-row">
+                                            <a th:href="@{/problems/{id}(id=${problem.id})}"
+                                               th:text="${problem.title}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="problem-link">Problem Title</a>
+                                            <span class="difficulty-badge"
+                                                  th:text="${problem.difficulty.name()}"
+                                                  th:classappend="' diff-' + ${problem.difficulty.name()}">MEDIUM</span>
+                                            <span th:if="${problem.platform != null}"
+                                                  class="platform-badge"
+                                                  th:text="${problem.platform.displayName}"
+                                                  th:classappend="' platform-' + ${problem.platform.name()}">LeetCode</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="revision-notes-block">
+                                    <label class="revision-label" th:attr="for='revision-' + ${problem.id}">Your revision notes</label>
+                                    <textarea th:id="'revision-' + ${problem.id}"
+                                              class="revision-textarea"
+                                              th:attr="data-id=${problem.id}"
+                                              rows="2"
+                                              placeholder="Write your own notes here — key ideas, edge cases, mistakes to avoid..."
+                                              th:text="${problem.revisionNotes}"></textarea>
+                                    <span class="revision-status" th:attr="data-id=${problem.id}"></span>
+                                </div>
+                            </article>
+                            </div>
+                        </th:block>
+
+                        <th:block th:with="difficultyProblems=${topic.mediumProblems}">
+                            <div class="difficulty-group" th:if="${!#lists.isEmpty(difficultyProblems)}">
+                                <h4 class="difficulty-group-title medium">Medium</h4>
+                                <article th:each="problem : ${difficultyProblems}"
+                                     class="problem-card"
+                                     th:classappend="${problem.solved} ? ' solved' : ''"
+                                     th:attr="data-problem-id=${problem.id},data-title=${problem.title},data-revision=${problem.revisionNotes}">
+                                <div class="problem-card-top">
+                                    <label class="problem-check">
+                                        <input type="checkbox"
+                                               th:checked="${problem.solved}"
+                                               th:attr="data-id=${problem.id}"
+                                               class="problem-toggle">
+                                        <span class="checkmark"></span>
+                                    </label>
+                                    <div class="problem-main">
+                                        <div class="problem-title-row">
+                                            <a th:href="@{/problems/{id}(id=${problem.id})}"
+                                               th:text="${problem.title}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="problem-link">Problem Title</a>
+                                            <span class="difficulty-badge"
+                                                  th:text="${problem.difficulty.name()}"
+                                                  th:classappend="' diff-' + ${problem.difficulty.name()}">MEDIUM</span>
+                                            <span th:if="${problem.platform != null}"
+                                                  class="platform-badge"
+                                                  th:text="${problem.platform.displayName}"
+                                                  th:classappend="' platform-' + ${problem.platform.name()}">LeetCode</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="revision-notes-block">
+                                    <label class="revision-label" th:attr="for='revision-' + ${problem.id}">Your revision notes</label>
+                                    <textarea th:id="'revision-' + ${problem.id}"
+                                              class="revision-textarea"
+                                              th:attr="data-id=${problem.id}"
+                                              rows="2"
+                                              placeholder="Write your own notes here — key ideas, edge cases, mistakes to avoid..."
+                                              th:text="${problem.revisionNotes}"></textarea>
+                                    <span class="revision-status" th:attr="data-id=${problem.id}"></span>
+                                </div>
+                            </article>
+                            </div>
+                        </th:block>
+
+                        <th:block th:with="difficultyProblems=${topic.hardProblems}">
+                            <div class="difficulty-group" th:if="${!#lists.isEmpty(difficultyProblems)}">
+                                <h4 class="difficulty-group-title hard">Hard</h4>
+                                <article th:each="problem : ${difficultyProblems}"
+                                     class="problem-card"
+                                     th:classappend="${problem.solved} ? ' solved' : ''"
+                                     th:attr="data-problem-id=${problem.id},data-title=${problem.title},data-revision=${problem.revisionNotes}">
+                                <div class="problem-card-top">
+                                    <label class="problem-check">
+                                        <input type="checkbox"
+                                               th:checked="${problem.solved}"
+                                               th:attr="data-id=${problem.id}"
+                                               class="problem-toggle">
+                                        <span class="checkmark"></span>
+                                    </label>
+                                    <div class="problem-main">
+                                        <div class="problem-title-row">
+                                            <a th:href="@{/problems/{id}(id=${problem.id})}"
+                                               th:text="${problem.title}"
+                                               target="_blank"
+                                               rel="noopener noreferrer"
+                                               class="problem-link">Problem Title</a>
+                                            <span class="difficulty-badge"
+                                                  th:text="${problem.difficulty.name()}"
+                                                  th:classappend="' diff-' + ${problem.difficulty.name()}">MEDIUM</span>
+                                            <span th:if="${problem.platform != null}"
+                                                  class="platform-badge"
+                                                  th:text="${problem.platform.displayName}"
+                                                  th:classappend="' platform-' + ${problem.platform.name()}">LeetCode</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="revision-notes-block">
+                                    <label class="revision-label" th:attr="for='revision-' + ${problem.id}">Your revision notes</label>
+                                    <textarea th:id="'revision-' + ${problem.id}"
+                                              class="revision-textarea"
+                                              th:attr="data-id=${problem.id}"
+                                              rows="2"
+                                              placeholder="Write your own notes here — key ideas, edge cases, mistakes to avoid..."
+                                              th:text="${problem.revisionNotes}"></textarea>
+                                    <span class="revision-status" th:attr="data-id=${problem.id}"></span>
+                                </div>
+                            </article>
+                            </div>
+                        </th:block>
+                    </div>
+                    </div>
+                    <div class="topic-pagination" th:if="${#lists.size(topic.problems) > 5}">
+                        <button type="button" class="topic-page-btn topic-page-prev" disabled>Previous</button>
+                        <span class="topic-page-info">Page 1 of 1</span>
+                        <button type="button" class="topic-page-btn topic-page-next">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <p>DSA Tracker Sheet &mdash; A2Z sheet with LeetCode / GeeksforGeeks links and your revision notes.</p>
+</footer>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${problem.title} + ' — DSA Tracker Sheet'">Problem — DSA Tracker Sheet</title>
+    <script>
+        (function () {
+            const theme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body class="problem-page">
+<header class="header">
+    <div class="header-inner">
+        <div class="brand">
+            <a th:href="@{/}" class="brand-link">
+                <span class="brand-icon">&#9670;</span>
+                <span class="brand-title">DSA Tracker Sheet</span>
+            </a>
+        </div>
+        <div class="header-actions">
+            <button type="button" id="themeToggleBtn" class="theme-btn" title="Toggle light/dark theme">
+                <span class="theme-icon-dark">&#9790;</span>
+                <span class="theme-icon-light">&#9728;</span>
+            </button>
+            <a th:href="@{/}" class="back-link">Back to sheet</a>
+        </div>
+    </div>
+</header>
+
+<main class="container problem-detail-container">
+    <article class="problem-detail-card" th:classappend="${problem.solved} ? ' solved' : ''" th:attr="data-problem-id=${problem.id}">
+        <p class="problem-detail-topic" th:text="${problem.topic.name}">Topic</p>
+
+        <div class="problem-detail-header">
+            <label class="problem-check">
+                <input type="checkbox"
+                       class="problem-toggle"
+                       th:checked="${problem.solved}"
+                       th:attr="data-id=${problem.id}">
+                <span class="checkmark"></span>
+            </label>
+            <div class="problem-detail-main">
+                <h1 th:text="${problem.title}">Problem Title</h1>
+                <div class="problem-title-row">
+                    <span class="difficulty-badge"
+                          th:text="${problem.difficulty.name()}"
+                          th:classappend="' diff-' + ${problem.difficulty.name()}">MEDIUM</span>
+                    <span th:if="${problem.platform != null}"
+                          class="platform-badge"
+                          th:text="${problem.platform.displayName}"
+                          th:classappend="' platform-' + ${problem.platform.name()}">LeetCode</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="problem-detail-actions">
+            <a th:if="${problem.url != null and !#strings.isEmpty(problem.url)}"
+               th:href="${problem.url}"
+               target="_blank"
+               rel="noopener noreferrer"
+               class="btn-primary">
+                Open on <span th:text="${problem.platform != null ? problem.platform.displayName : 'Platform'}">LeetCode</span>
+            </a>
+        </div>
+
+        <div class="revision-notes-block problem-detail-notes">
+            <label class="revision-label" th:attr="for='revision-' + ${problem.id}">Your revision notes</label>
+            <textarea th:id="'revision-' + ${problem.id}"
+                      class="revision-textarea"
+                      th:attr="data-id=${problem.id}"
+                      rows="8"
+                      placeholder="Write your own notes here — key ideas, edge cases, mistakes to avoid..."
+                      th:text="${problem.revisionNotes}"></textarea>
+            <span class="revision-status" th:attr="data-id=${problem.id}"></span>
+        </div>
+    </article>
+</main>
+
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
